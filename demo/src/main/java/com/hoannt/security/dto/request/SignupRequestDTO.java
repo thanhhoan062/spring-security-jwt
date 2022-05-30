@@ -7,7 +7,11 @@ import java.util.Set;
 
 public class SignupRequestDTO {
     @NotBlank
-    @Size(min = 3, max = 20)
+    @Size(min = 4, max = 40)
+    private String name;
+
+    @NotBlank
+    @Size(min = 4, max = 40)
     private String username;
 
     @NotBlank
@@ -51,5 +55,13 @@ public class SignupRequestDTO {
 
     public void setRole(Set<String> role) {
         this.role = role;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }

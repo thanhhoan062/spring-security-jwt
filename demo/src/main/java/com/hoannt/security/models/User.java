@@ -1,5 +1,7 @@
 package com.hoannt.security.models;
 
+import org.hibernate.annotations.NaturalId;
+
 import javax.persistence.*;
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
@@ -17,28 +19,42 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     @NotBlank
-    @Size(max = 20)
+    @Size(max = 40)
+    private String name;
+
+    @NotBlank
+    @Size(max = 15)
     private String username;
+
+    @NaturalId
     @NotBlank
-    @Size(max = 50)
+    @Size(max = 40)
     @Email
     private String email;
+
     @NotBlank
     @Size(max = 120)
     private String password;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(	name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
+
     public User() {
+
     }
-    public User(String username, String email, String password) {
+
+    public User(String name, String username, String email, String password) {
+        this.name = name;
         this.username = username;
         this.email = email;
         this.password = password;
     }
+
     public Long getId() {
         return id;
     }
@@ -68,5 +84,13 @@ public class User {
     }
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }

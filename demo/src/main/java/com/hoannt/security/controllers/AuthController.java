@@ -14,9 +14,9 @@ import com.hoannt.security.models.Role;
 import com.hoannt.security.models.User;
 import com.hoannt.security.repository.RoleRepository;
 import com.hoannt.security.repository.UserRepository;
-import com.hoannt.security.security.jwt.JwtUtils;
+import com.hoannt.security.security.UserDetail.UserDetailImpl;
+import com.hoannt.security.security.jwt.JwtTokenProvider;
 import com.hoannt.security.services.RefreshTokenService;
-import com.hoannt.security.services.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,8 +25,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.validation.Valid;
+import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +38,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
     @Autowired
     AuthenticationManager authenticationManager;
     @Autowired
@@ -45,43 +48,55 @@ public class AuthController {
     @Autowired
     PasswordEncoder encoder;
     @Autowired
-    JwtUtils jwtUtils;
+    JwtTokenProvider jwtTokenProvider;
+
     @Autowired
     RefreshTokenService refreshTokenService;
 
 
-    /*// With not refresh token
+    // With not refresh token
     @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequestDTO loginRequestDTO) {
+    public ResponseEntity<?> authenticateUserWithAccessToken(@Valid @RequestBody LoginRequestDTO loginRequestDTO) throws Exception {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequestDTO.getUsername(), loginRequestDTO.getPassword()));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication);
+                new UsernamePasswordAuthenticationToken(
+                        loginRequestDTO.getUsername(),
+                        loginRequestDTO.getPassword())
+        );
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(new JwtResponse(jwt,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                roles));
-    }*/
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        String jwt = jwtTokenProvider.generateTokenWithAuthentication(authentication);
+
+        try {
+            UserDetailImpl userDetails = (UserDetailImpl) authentication.getPrincipal();
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(new JwtResponse(jwt, null,
+                    userDetails.getId(),
+                    userDetails.getUsername(),
+                    userDetails.getEmail(),
+                    roles));
+        } catch (Exception e) {
+            throw new Exception(e.getMessage());
+        }
+
+    }
 
     /*
      * Signin with refresh token
      */
-    @PostMapping("/signin")
+    @PostMapping("/signin-refresh")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequestDTO loginRequest) {
         Authentication authentication = authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        UserDetailImpl userDetails = (UserDetailImpl) authentication.getPrincipal();
 
-        String jwt = jwtUtils.generateJwtToken(userDetails);
+        String jwt = jwtTokenProvider.generateJwtToken(userDetails);
 
         List<String> roles = userDetails.getAuthorities().stream().map(item -> item.getAuthority())
                 .collect(Collectors.toList());
@@ -93,13 +108,13 @@ public class AuthController {
     }
 
     @PostMapping("/refreshtoken")
-    public ResponseEntity<?> refreshtoken(@Valid @RequestBody TokenRefreshRequest request) {
+    public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         String requestRefreshToken = request.getRefreshToken();
         return refreshTokenService.findByToken(requestRefreshToken)
                 .map(refreshTokenService::verifyExpiration)
                 .map(RefreshToken::getUser)
                 .map(user -> {
-                    String token = jwtUtils.generateTokenFromUsername(user.getUsername());
+                    String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername());
                     return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
                 })
                 .orElseThrow(() -> new TokenRefreshException(requestRefreshToken,
@@ -119,11 +134,14 @@ public class AuthController {
                     .body(new MessageResponse("Error: Email is already in use!"));
         }
         // Create new user's account
-        User user = new User(signupRequestDTO.getUsername(),
+        User user = new User(signupRequestDTO.getName(), signupRequestDTO.getUsername(),
                 signupRequestDTO.getEmail(),
                 encoder.encode(signupRequestDTO.getPassword()));
+
         Set<String> strRoles = signupRequestDTO.getRole();
+
         Set<Role> roles = new HashSet<>();
+
         if (strRoles == null) {
             Role userRole = roleRepository.findByName(ERole.ROLE_USER)
                     .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
@@ -149,7 +167,12 @@ public class AuthController {
             });
         }
         user.setRoles(roles);
-        userRepository.save(user);
-        return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
+        User result = userRepository.save(user);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath().path("/api/users/{username}")
+                .buildAndExpand(result.getUsername()).toUri();
+
+        return ResponseEntity.created(location).body(new MessageResponse( "User registered successfully"));
     }
 }
