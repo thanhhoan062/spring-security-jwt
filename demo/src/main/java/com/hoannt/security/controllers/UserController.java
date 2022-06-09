@@ -1,9 +1,6 @@
 package com.hoannt.security.controllers;
 
 import com.hoannt.security.dto.UserDTO;
-import com.hoannt.security.dto.UserProfileDTO;
-import com.hoannt.security.exception.ResourceNotFoundException;
-import com.hoannt.security.models.User;
 import com.hoannt.security.security.UserDetail.CurrentUser;
 import com.hoannt.security.security.UserDetail.UserDetailImpl;
 import com.hoannt.security.services.UserService;
@@ -28,13 +25,4 @@ public class UserController {
         return userDTO;
     }
 
-    @GetMapping("/users/{username}")
-    public UserProfileDTO getUserProfile(@PathVariable(value = "username") String username) {
-        User user = (User) userService.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-        UserProfileDTO userProfile = new UserProfileDTO(user.getId(), user.getUsername(), user.getName(), user.getCreatedAt(), 0L, 0L);
-
-        return userProfile;
-    }
 }

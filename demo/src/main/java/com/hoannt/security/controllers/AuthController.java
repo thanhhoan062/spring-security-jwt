@@ -29,6 +29,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.net.URI;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -57,17 +58,17 @@ public class AuthController {
     // With not refresh token
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUserWithAccessToken(@Valid @RequestBody LoginRequestDTO loginRequestDTO) throws Exception {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequestDTO.getUsername(),
-                        loginRequestDTO.getPassword())
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        String jwt = jwtTokenProvider.generateTokenWithAuthentication(authentication);
-
         try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequestDTO.getUsername(),
+                            loginRequestDTO.getPassword())
+            );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            String jwt = jwtTokenProvider.generateTokenWithAuthentication(authentication);
+
             UserDetailImpl userDetails = (UserDetailImpl) authentication.getPrincipal();
             List<String> roles = userDetails.getAuthorities().stream()
                     .map(item -> item.getAuthority())
@@ -78,9 +79,11 @@ public class AuthController {
                     userDetails.getUsername(),
                     userDetails.getEmail(),
                     roles));
+
         } catch (Exception e) {
             throw new Exception(e.getMessage());
         }
+
 
     }
 
@@ -167,6 +170,8 @@ public class AuthController {
             });
         }
         user.setRoles(roles);
+        user.setCreatedAt(Instant.now());
+        user.setUpdatedAt(Instant.now());
         User result = userRepository.save(user);
 
         URI location = ServletUriComponentsBuilder

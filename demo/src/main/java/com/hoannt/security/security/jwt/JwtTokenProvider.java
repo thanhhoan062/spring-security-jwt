@@ -19,6 +19,24 @@ public class JwtTokenProvider {
     private int jwtExpirationInMs;
 
     /**
+     * Chỉ sử dụng JWT
+     */
+    public String generateTokenWithAuthentication(Authentication authentication) {
+
+        UserDetailImpl userPrincipal = (UserDetailImpl) authentication.getPrincipal();
+
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
+
+        return Jwts.builder()
+                .setSubject(Long.toString(userPrincipal.getId()))
+                .setIssuedAt(new Date())
+                .setExpiration(expiryDate)
+                .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .compact();
+    }
+
+    /**
      * Sử dụng refreskToken
      * @param userPrincipal
      * @return
@@ -28,8 +46,10 @@ public class JwtTokenProvider {
     }
 
     public String generateTokenFromUsername(String username) {
-        return Jwts.builder().setSubject(username).setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpirationInMs)).signWith(SignatureAlgorithm.HS512, jwtSecret)
+        return Jwts.builder().setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + jwtExpirationInMs))
+                .signWith(SignatureAlgorithm.HS512, jwtSecret)
                 .compact();
     }
 
@@ -58,23 +78,5 @@ public class JwtTokenProvider {
             logger.error("JWT claims string is empty: {}", e.getMessage());
         }
         return false;
-    }
-
-    /**
-     * Chỉ sử dụng JWT
-     */
-    public String generateTokenWithAuthentication(Authentication authentication) {
-
-        UserDetailImpl userPrincipal = (UserDetailImpl) authentication.getPrincipal();
-
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
-
-        return Jwts.builder()
-                .setSubject(Long.toString(userPrincipal.getId()))
-                .setIssuedAt(new Date())
-                .setExpiration(expiryDate)
-                .signWith(SignatureAlgorithm.HS512, jwtSecret)
-                .compact();
     }
 }
