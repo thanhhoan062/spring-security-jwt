@@ -66,7 +66,6 @@ public class CommonUtils {
         return (str == null || str.trim().isEmpty());
     }
 
-    //phucvt5
     public static boolean isNullOrEmpty(List list) {
         return (list == null || list.isEmpty());
     }
